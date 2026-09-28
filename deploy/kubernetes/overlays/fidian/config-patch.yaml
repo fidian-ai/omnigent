@@ -1,0 +1,20 @@
+# Google Workspace sign-in. The base ConfigMap ships the "accounts" provider
+# (local username/password); this switches it to OIDC.
+#
+# Without this patch an apply would reset the provider to "accounts" and drop
+# every OIDC key, locking out everyone who signs in with Google.
+#
+# The client ID is a public identifier (it appears in the browser's auth URL).
+# The client secret is not here — it lives in omnigent-secrets as
+# OMNIGENT_OIDC_CLIENT_SECRET.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: omnigent-config
+data:
+  OMNIGENT_AUTH_PROVIDER: "oidc"
+  OMNIGENT_OIDC_ISSUER: "https://accounts.google.com"
+  OMNIGENT_OIDC_CLIENT_ID: "930447562023-2gtgr9pm2j0ccj14c6ismrujci6ci7fh.apps.googleusercontent.com"
+  OMNIGENT_OIDC_REDIRECT_URI: "https://omnigent.fidian.ai/auth/callback"
+  OMNIGENT_OIDC_ALLOWED_DOMAINS: "fidian.ai"
+  OMNIGENT_OIDC_SESSION_TTL_HOURS: "168"

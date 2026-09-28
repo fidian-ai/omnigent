@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: omnigent
+spec:
+  # RWO PVC (omnigent-artifacts) can only attach to one node at a time.
+  # RollingUpdate would spin up the replacement before killing the old pod
+  # and hit MultiAttach when they land on different nodes.
+  strategy:
+    type: Recreate
+  template:
+    spec:
+      containers:
+        - name: omnigent
+          # Built from deploy/docker/Dockerfile with OMNIGENT_EXTRAS=kubernetes,e2b
+          # (deployment-gcp/deploy/server-image/Makefile in the fidian repo).
+          # The upstream ghcr image omits those extras and reports "sandbox
+          # provider unavailable" at first launch.
+          #
+          # Build it from this branch, not from the release tag: the tag alone
+          # is missing the local changes carried on top of it.
+          #
+          # Pinned by digest, not just the tag. A tag is mutable: rebuilding
+          # it leaves nodes that already cached the old one serving stale code
+          # under pullPolicy IfNotPresent, silently and per-node. The digest
+          # makes the kubelet fetch exactly this build. Re-pin it after every
+          # rebuild — `gcloud artifacts docker images describe <image>:<tag>
+          # --format='value(image_summary.digest)'`.
+          image: us-central1-docker.pkg.dev/fidian-dev-1/omnigent/omnigent-server:v0.15.0-k8s-e2b@sha256:74081e428a04df4421eb13bb08b4e8aefc68e200f5f6b0469f048c908984a9a4
+          imagePullPolicy: IfNotPresent
+          env:
+            # Selects the managed-sandbox backend. Read from a file, not from
+            # the env-based omnigent-config ConfigMap.
+            - name: OMNIGENT_CONFIG
+              value: /etc/omnigent/config.yaml
+          # The entrypoint runs Alembic before binding the port. A large
+          # backlog of migrations takes minutes, which the liveness probe
+          # would read as a hang and kill mid-rewrite. Liveness and readiness
+          # stay suspended until this passes.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
+          volumeMounts:
+            - name: sandbox-config
+              mountPath: /etc/omnigent
+      volumes:
+        - name: sandbox-config
+          configMap:
+            name: omnigent-sandbox-config

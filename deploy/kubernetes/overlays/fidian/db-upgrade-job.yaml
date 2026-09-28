@@ -1,0 +1,66 @@
+# Offline schema upgrade.
+#
+# Deliberately left out of kustomization.yaml: a Job belongs to one upgrade,
+# not to every `kubectl apply`. Apply it by hand, or let omnigent-install.sh
+# --migrate drive it (that path rewrites the image to match the Deployment).
+#
+# The server entrypoint also migrates on boot. Running it here instead keeps
+# the work off a probed pod and off a rollout clock, which matters when the
+# backlog includes whole-table rewrites.
+#
+#   kubectl -n omnigent scale deploy/omnigent --replicas=0
+#   kubectl -n omnigent create -f db-upgrade-job.yaml
+#   kubectl -n omnigent logs -f job/<name-printed-by-create>
+#   kubectl -n omnigent scale deploy/omnigent --replicas=1
+#
+# generateName (not name) so repeat runs don't collide, which means `create`
+# rather than `apply`.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generateName: omnigent-db-upgrade-
+  labels:
+    app: omnigent-db-upgrade
+spec:
+  # A retry would re-enter a partially applied migration. Fail and let an
+  # operator look instead.
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      # Deliberately NOT app=omnigent: the omnigent Service selects that label
+      # and this pod has no readiness probe, so it would be enrolled as an
+      # endpoint and swallow traffic while the Deployment is scaled to zero.
+      labels:
+        app: omnigent-db-upgrade
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: db-upgrade
+          # Must match the Deployment, or the two migrate to different schema
+          # versions. omnigent-install.sh --migrate rewrites this line from the
+          # live Deployment; keep it in step for standalone runs.
+          image: us-central1-docker.pkg.dev/fidian-dev-1/omnigent/omnigent-server:v0.15.0-k8s-e2b@sha256:74081e428a04df4421eb13bb08b4e8aefc68e200f5f6b0469f048c908984a9a4
+          imagePullPolicy: IfNotPresent
+          # db-upgrade echoes the URL it was handed, password and all, and pod
+          # logs outlive the Job. Redact the credential on the way out;
+          # pipefail keeps the migration's exit code rather than sed's.
+          command:
+            - bash
+            - -c
+            - |
+              set -o pipefail
+              omnigent debug db-upgrade "$DATABASE_URL" 2>&1 \
+                | sed -E 's#(://[^:/@]+:)[^@]*(@)#\1****\2#g'
+          envFrom:
+            - configMapRef:
+                name: omnigent-config
+            - secretRef:
+                name: omnigent-secrets
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"

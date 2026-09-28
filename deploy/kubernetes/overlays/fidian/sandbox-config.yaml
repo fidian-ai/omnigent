@@ -1,0 +1,31 @@
+# The server's `sandbox:` section. Mounted at /etc/omnigent by
+# deployment-patch.yaml, which points OMNIGENT_CONFIG at it.
+#
+# Distinct from the omnigent-config ConfigMap: that one supplies environment
+# variables, and the managed-sandbox backend is not read from the environment.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: omnigent-sandbox-config
+  labels:
+    app.kubernetes.io/name: omnigent
+    app.kubernetes.io/component: server
+data:
+  config.yaml: |
+    sandbox:
+      provider: e2b
+      # Public URL the sandbox's host process dials back to (E2B runs on
+      # their network — must be reachable from the public internet).
+      server_url: https://omnigent.fidian.ai
+      e2b:
+        template: omnigent-host
+        # Env var NAMES the server projects into every launched sandbox;
+        # values come from the server pod env (omnigent-secrets via envFrom).
+        env:
+          - ANTHROPIC_API_KEY
+          - OPENAI_API_KEY
+          - OPENROUTER_API_KEY
+          - FIREWORKS_API_KEY
+          - GITHUB_TOKEN
+          - AGY_OAUTH_TOKEN_JSON
+          - OMNIGENT_RUNNER_ENV_PASSTHROUGH
