@@ -19,6 +19,7 @@ patches:
   - path: deployment-patch.yaml
   - path: postgres-patch.yaml
   - path: config-patch.yaml
+  - path: secret-delete-patch.yaml
 
 # db-upgrade-job.yaml is deliberately absent: a migration Job belongs to one
 # upgrade, not to every apply. See the comments in that file.
