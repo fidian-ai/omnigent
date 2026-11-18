@@ -26,7 +26,7 @@ spec:
           # makes the kubelet fetch exactly this build. Re-pin it after every
           # rebuild — `gcloud artifacts docker images describe <image>:<tag>
           # --format='value(image_summary.digest)'`.
-          image: us-central1-docker.pkg.dev/fidian-dev-1/omnigent/omnigent-server:v0.15.0-k8s-e2b@sha256:74081e428a04df4421eb13bb08b4e8aefc68e200f5f6b0469f048c908984a9a4
+          image: us-central1-docker.pkg.dev/fidian-dev-1/omnigent/omnigent-server:v0.22.0-k8s-e2b@sha256:fb474c25e16d622191888d7399ca6c158903d18d3f102472bb9d84cf08096a5c
           imagePullPolicy: IfNotPresent
           env:
             # Selects the managed-sandbox backend. Read from a file, not from
