@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+spec:
+  template:
+    spec:
+      containers:
+        - name: postgres
+          env:
+            # PVC mount roots often contain lost+found (ext4), which trips
+            # initdb — point PGDATA at a subdirectory of the mount.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          # Sized for schema upgrades, which rewrite whole tables and build
+          # GIN indexes. Steady-state serving needs far less.
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
